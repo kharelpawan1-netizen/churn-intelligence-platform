@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     environment: str = "development"
     debug: bool = True
     api_key: str = "changeme"  # overridden by .env in real use
+    database_url: str = "sqlite:///./churn_platform.db"  # falls back to SQLite if unset
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False)
 
@@ -25,3 +26,4 @@ if __name__ == "__main__":
     print(f"App name:    {settings.app_name}")
     print(f"Environment: {settings.environment}")
     print(f"Debug mode:  {settings.debug}")
+    print(f"Database:    {settings.database_url}")

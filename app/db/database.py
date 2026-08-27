@@ -4,10 +4,12 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-# SQLite file will be created automatically at this path on first run.
-DATABASE_URL = "sqlite:///./churn_platform.db"
+from app.core.config import settings
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+# SQLite needs this special connect_arg; Postgres doesn't, so only apply it conditionally.
+connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
+
+engine = create_engine(settings.database_url, connect_args=connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
