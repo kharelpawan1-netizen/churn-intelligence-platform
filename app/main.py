@@ -6,6 +6,8 @@ import logging
 
 import pandas as pd
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -31,6 +33,15 @@ app = FastAPI(
     title=settings.app_name,
     version="0.1.0",
 )
+
+# Serve static frontend files (HTML/CSS/JS) under /static
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+@app.get("/")
+def serve_frontend():
+    """Serve the frontend UI at the root URL."""
+    return FileResponse("static/index.html")
 
 
 @app.get("/api/v1/health")
