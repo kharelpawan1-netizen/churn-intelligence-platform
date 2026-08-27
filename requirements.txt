@@ -1,0 +1,14 @@
+pydantic-settings
+python-dotenv
+fastapi
+uvicorn[standard]
+pandas
+matplotlib
+seaborn
+scipy
+scikit-learn
+shap
+joblib
+sqlalchemy
+pytest
+httpx
