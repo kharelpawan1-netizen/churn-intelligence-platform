@@ -24,3 +24,13 @@ Deployed at **0.2**, not the default 0.5. Selected via cost analysis: assumed $5
 
 ## Top predictive features (via SHAP)
 Fiber optic internet service, tenure (low tenure → higher risk), and month-to-month contracts (vs. one/two-year) are the strongest churn drivers — confirmed independently via EDA, chi-square/t-tests, and SHAP values.
+
+## Fairness audit
+
+Audited selection rate, recall, and false positive rate across `gender` and `SeniorCitizen` on the held-out test set (threshold 0.2).
+
+**Gender:** no meaningful disparity (selection rate 48.0% vs 48.6%; recall 83.9% vs 87.3%). Consistent with gender being statistically insignificant as a churn predictor (see statistical analysis).
+
+**SeniorCitizen:** substantial disparity. Senior citizens are flagged as at-risk at nearly 2x the rate of non-seniors (76.1% vs 43.1% selection rate), with a correspondingly higher false positive rate (59.7% vs 31.5%). Likely driven by a genuinely higher underlying churn rate among senior citizens in this dataset, rather than an arbitrary model bias — but the practical effect (senior citizens receiving substantially more "at-risk" classifications and associated retention outreach) is real regardless of cause, and would warrant discussion with the business before production deployment.
+
+Audit script: `pipelines/fairness_audit.py`.
