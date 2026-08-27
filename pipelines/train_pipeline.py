@@ -2,6 +2,7 @@
 # End-to-end training pipeline: load -> clean -> engineer features -> train -> save (versioned).
 
 import pandas as pd
+import numpy as np
 import joblib
 from datetime import datetime
 from pathlib import Path
@@ -72,8 +73,18 @@ def train_and_save() -> None:
         "models/model_metadata.pkl",
     )
 
+    # --- SHAP background sample: a small reference set the API will use to
+    # compute per-prediction explanations at request time. ---
+    np.random.seed(42)
+    sample_size = min(100, X_train_scaled.shape[0])
+    background_sample = X_train_scaled[
+        np.random.choice(X_train_scaled.shape[0], sample_size, replace=False)
+    ]
+    joblib.dump(background_sample, "models/shap_background.pkl")
+
     print(f"\nSaved versioned model to models/versions/{version}/")
     print("Updated production model in models/")
+    print("Saved SHAP background sample to models/shap_background.pkl")
 
 
 if __name__ == "__main__":

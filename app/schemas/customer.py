@@ -27,13 +27,19 @@ class CustomerData(BaseModel):
     TotalCharges: float
 
 
+class TopFactor(BaseModel):
+    """One feature's contribution to a specific prediction."""
+    feature: str
+    impact: float  # positive = pushed toward churn, negative = pushed away from it
+
+
 class PredictionResponse(BaseModel):
     """What we return after making a prediction."""
     churn_probability: float
     will_churn: bool
     risk_level: str
+    top_factors: list[TopFactor] = []
 
-# Add to app/schemas/customer.py
 
 class BatchPredictionResult(BaseModel):
     """One customer's result within a batch."""

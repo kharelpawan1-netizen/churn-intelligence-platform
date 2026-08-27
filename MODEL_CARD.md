@@ -21,6 +21,7 @@ Deployed at **0.2**, not the default 0.5. Selected via cost analysis: assumed $5
 - **Static training data:** the model reflects patterns in one historical snapshot. No drift detection or automatic retraining is implemented; retraining is manual (`python -m pipelines.train_pipeline`). 
 - ~~SQLite data loss on redeploy~~ — **Resolved**: migrated to PostgreSQL (see DEPLOYMENT.md) with a verified persistence test across a production restart.
 - **No fairness/bias audit performed** — a real deployment should audit predictions across demographic groups (e.g., `gender`, `SeniorCitizen`) before production use, even though `gender` was found statistically insignificant here.
+- **Per-prediction SHAP explanations can diverge from aggregate SHAP patterns**, particularly for the `InternetService_Fiber optic` feature — a known consequence of the multicollinearity noted above. A single customer's explanation should be read as "how this feature affected this specific prediction," not as a restatement of the model's general behavior.
 
 ## Top predictive features (via SHAP)
 Fiber optic internet service, tenure (low tenure → higher risk), and month-to-month contracts (vs. one/two-year) are the strongest churn drivers — confirmed independently via EDA, chi-square/t-tests, and SHAP values.

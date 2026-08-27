@@ -3,31 +3,60 @@
 
 import pandas as pd
 import joblib
+import shap
 from sqlalchemy.orm import Session
 
-from app.schemas.customer import CustomerData, PredictionResponse, BatchPredictionResult
+from app.schemas.customer import (
+    CustomerData,
+    PredictionResponse,
+    BatchPredictionResult,
+    TopFactor,
+)
 from app.db.models import PredictionLog
 
 model = joblib.load("models/churn_model.pkl")
 scaler = joblib.load("models/scaler.pkl")
 metadata = joblib.load("models/model_metadata.pkl")
+shap_background = joblib.load("models/shap_background.pkl")
 
 THRESHOLD = metadata["threshold"]
 FEATURE_COLUMNS = metadata["feature_columns"]
 
+# Built once at startup, reused for every prediction — this is what makes
+# per-request SHAP explanations fast enough to use in a live API.
+explainer = shap.LinearExplainer(model, shap_background)
+
+
+def _encode_row(row: pd.Series) -> pd.DataFrame:
+    """Shared encoding logic: raw customer row -> model-ready feature row."""
+    row_df = pd.DataFrame([row])
+    row_df["avg_monthly_spend"] = row_df["TotalCharges"] / (row_df["tenure"] + 1)
+    row_df["is_new_customer"] = (row_df["tenure"] <= 3).astype(int)
+
+    categorical_cols = row_df.select_dtypes(include="object").columns.tolist()
+    encoded_df = pd.get_dummies(row_df, columns=categorical_cols, drop_first=True)
+    return encoded_df.reindex(columns=FEATURE_COLUMNS, fill_value=0)
+
+
+def _get_top_factors(scaled_row, top_n: int = 3) -> list[TopFactor]:
+    """Compute the top N features driving this specific prediction, by |impact|."""
+    shap_values = explainer(scaled_row)
+    impacts = shap_values.values[0]  # one row -> 1D array of per-feature impacts
+
+    factor_pairs = list(zip(FEATURE_COLUMNS, impacts))
+    factor_pairs.sort(key=lambda pair: abs(pair[1]), reverse=True)
+
+    return [
+        TopFactor(feature=name, impact=round(float(impact), 4))
+        for name, impact in factor_pairs[:top_n]
+    ]
+
 
 def predict_churn(customer: CustomerData, db: Session) -> PredictionResponse:
     """Run the full pipeline: raw input -> engineered features -> prediction -> log to DB."""
-    raw_df = pd.DataFrame([customer.model_dump()])
-
-    raw_df["avg_monthly_spend"] = raw_df["TotalCharges"] / (raw_df["tenure"] + 1)
-    raw_df["is_new_customer"] = (raw_df["tenure"] <= 3).astype(int)
-
-    categorical_cols = raw_df.select_dtypes(include="object").columns.tolist()
-    encoded_df = pd.get_dummies(raw_df, columns=categorical_cols, drop_first=True)
-    encoded_df = encoded_df.reindex(columns=FEATURE_COLUMNS, fill_value=0)
-
+    encoded_df = _encode_row(pd.Series(customer.model_dump()))
     scaled = scaler.transform(encoded_df)
+
     probability = model.predict_proba(scaled)[0, 1]
     will_churn = probability >= THRESHOLD
 
@@ -37,6 +66,8 @@ def predict_churn(customer: CustomerData, db: Session) -> PredictionResponse:
         risk_level = "medium"
     else:
         risk_level = "low"
+
+    top_factors = _get_top_factors(scaled)
 
     log_entry = PredictionLog(
         churn_probability=round(float(probability), 4),
@@ -53,6 +84,7 @@ def predict_churn(customer: CustomerData, db: Session) -> PredictionResponse:
         churn_probability=round(float(probability), 4),
         will_churn=bool(will_churn),
         risk_level=risk_level,
+        top_factors=top_factors,
     )
 
 
@@ -61,16 +93,9 @@ def predict_churn_batch(df: pd.DataFrame, db: Session) -> list[BatchPredictionRe
     results = []
 
     for idx, row in df.iterrows():
-        row_df = pd.DataFrame([row])
-
-        row_df["avg_monthly_spend"] = row_df["TotalCharges"] / (row_df["tenure"] + 1)
-        row_df["is_new_customer"] = (row_df["tenure"] <= 3).astype(int)
-
-        categorical_cols = row_df.select_dtypes(include="object").columns.tolist()
-        encoded_df = pd.get_dummies(row_df, columns=categorical_cols, drop_first=True)
-        encoded_df = encoded_df.reindex(columns=FEATURE_COLUMNS, fill_value=0)
-
+        encoded_df = _encode_row(row)
         scaled = scaler.transform(encoded_df)
+
         probability = model.predict_proba(scaled)[0, 1]
         will_churn = probability >= THRESHOLD
 
