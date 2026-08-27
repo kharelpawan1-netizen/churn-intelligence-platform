@@ -1,17 +1,23 @@
 # app/main.py
 # Entry point for the FastAPI backend.
 
+import io
 import logging
 
-from fastapi import FastAPI, Depends, HTTPException
+import pandas as pd
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.core.config import settings
 from app.core.security import verify_api_key
 from app.core.logging_config import setup_logging
-from app.schemas.customer import CustomerData, PredictionResponse
-from app.services.prediction_service import predict_churn
+from app.schemas.customer import (
+    CustomerData,
+    PredictionResponse,
+    BatchPredictionResponse,
+)
+from app.services.prediction_service import predict_churn, predict_churn_batch
 from app.db.database import engine, Base, get_db
 from app.db import models
 from app.db.models import PredictionLog
@@ -48,6 +54,28 @@ def predict(customer: CustomerData, db: Session = Depends(get_db)) -> Prediction
     except Exception as e:
         logger.error(f"Prediction failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal error during prediction")
+
+
+@app.post("/api/v1/predict/batch", response_model=BatchPredictionResponse, dependencies=[Depends(verify_api_key)])
+async def predict_batch(file: UploadFile = File(...), db: Session = Depends(get_db)) -> BatchPredictionResponse:
+    """Predict churn risk for multiple customers from an uploaded CSV."""
+    if not file.filename.endswith(".csv"):
+        raise HTTPException(status_code=400, detail="File must be a CSV")
+
+    try:
+        contents = await file.read()
+        df = pd.read_csv(io.BytesIO(contents))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not parse CSV: {e}")
+
+    try:
+        logger.info(f"Batch prediction requested for {len(df)} customers")
+        results = predict_churn_batch(df, db)
+        logger.info(f"Batch prediction completed: {len(results)} results")
+        return BatchPredictionResponse(total_processed=len(results), results=results)
+    except Exception as e:
+        logger.error(f"Batch prediction failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal error during batch prediction")
 
 
 @app.get("/api/v1/monitoring/summary")

@@ -32,3 +32,18 @@ class PredictionResponse(BaseModel):
     churn_probability: float
     will_churn: bool
     risk_level: str
+
+# Add to app/schemas/customer.py
+
+class BatchPredictionResult(BaseModel):
+    """One customer's result within a batch."""
+    row_index: int
+    churn_probability: float
+    will_churn: bool
+    risk_level: str
+
+
+class BatchPredictionResponse(BaseModel):
+    """Response for a batch prediction request."""
+    total_processed: int
+    results: list[BatchPredictionResult]
