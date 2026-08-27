@@ -6,25 +6,36 @@
 <style>
   body { font-family: -apple-system, Segoe UI, Arial, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; background: #f7f8fa; color: #1a1a2e; }
   h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.1rem; margin-top: 0; }
   .card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 20px; }
   label { display: block; margin-top: 12px; font-size: 0.85rem; font-weight: 600; color: #555; }
   input, select { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
   button { margin-top: 20px; padding: 10px 20px; background: #4f46e5; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
   button:hover { background: #4338ca; }
-  #result { display: none; }
+  #result, #batchResult { display: none; }
   .risk-low { color: #16a34a; }
   .risk-medium { color: #d97706; }
   .risk-high { color: #dc2626; }
   .prob-bar { height: 10px; background: #eee; border-radius: 5px; overflow: hidden; margin-top: 8px; }
   .prob-fill { height: 100%; background: currentColor; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #eee; }
+  th { color: #555; font-size: 0.8rem; text-transform: uppercase; }
+  .badge { padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.8rem; }
+  .badge-low { background: #dcfce7; color: #16a34a; }
+  .badge-medium { background: #fef3c7; color: #d97706; }
+  .badge-high { background: #fee2e2; color: #dc2626; }
+  .section-divider { border: none; border-top: 1px solid #eee; margin: 24px 0; }
 </style>
 </head>
 <body>
 
 <h1>Churn Risk Predictor</h1>
 
+<!-- Single prediction -->
 <div class="card">
+  <h2>Single Customer</h2>
   <div class="grid">
     <div>
       <label>Contract</label>
@@ -70,6 +81,35 @@
   <strong id="errorText"></strong>
 </div>
 
+<!-- Batch prediction -->
+<div class="card">
+  <h2>Batch (CSV Upload)</h2>
+  <p style="font-size:0.85rem; color:#666;">Upload a CSV with the same columns as a single customer record (one row per customer).</p>
+
+  <label>API Key</label>
+  <input type="text" id="batchApiKey" placeholder="Enter your API key">
+
+  <label>CSV File</label>
+  <input type="file" id="csvFile" accept=".csv">
+
+  <button onclick="predictBatch()">Predict Batch</button>
+</div>
+
+<div class="card" id="batchResult">
+  <h2>Batch Results</h2>
+  <p id="batchSummary" style="color:#555; font-size:0.9rem;"></p>
+  <table>
+    <thead>
+      <tr><th>Row</th><th>Probability</th><th>Will Churn</th><th>Risk</th></tr>
+    </thead>
+    <tbody id="batchTableBody"></tbody>
+  </table>
+</div>
+
+<div class="card" id="batchErrorCard" style="display:none; color:#dc2626;">
+  <strong id="batchErrorText"></strong>
+</div>
+
 <script>
 async function predict() {
   const payload = {
@@ -113,6 +153,56 @@ async function predict() {
   } catch (e) {
     document.getElementById("errorText").textContent = e.message;
     document.getElementById("errorCard").style.display = "block";
+  }
+}
+
+async function predictBatch() {
+  const apiKey = document.getElementById("batchApiKey").value;
+  const fileInput = document.getElementById("csvFile");
+  document.getElementById("batchErrorCard").style.display = "none";
+  document.getElementById("batchResult").style.display = "none";
+
+  if (!fileInput.files.length) {
+    document.getElementById("batchErrorText").textContent = "Please choose a CSV file first.";
+    document.getElementById("batchErrorCard").style.display = "block";
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("file", fileInput.files[0]);
+
+  try {
+    const res = await fetch("/api/v1/predict/batch", {
+      method: "POST",
+      headers: { "x-api-key": apiKey },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Request failed");
+    }
+
+    const data = await res.json();
+    document.getElementById("batchSummary").textContent = `Processed ${data.total_processed} customer(s).`;
+
+    const tbody = document.getElementById("batchTableBody");
+    tbody.innerHTML = "";
+    data.results.forEach(r => {
+      const pct = (r.churn_probability * 100).toFixed(1) + "%";
+      const badgeClass = "badge badge-" + r.risk_level;
+      tbody.innerHTML += `<tr>
+        <td>${r.row_index}</td>
+        <td>${pct}</td>
+        <td>${r.will_churn ? "Yes" : "No"}</td>
+        <td><span class="${badgeClass}">${r.risk_level.toUpperCase()}</span></td>
+      </tr>`;
+    });
+
+    document.getElementById("batchResult").style.display = "block";
+  } catch (e) {
+    document.getElementById("batchErrorText").textContent = e.message;
+    document.getElementById("batchErrorCard").style.display = "block";
   }
 }
 </script>
