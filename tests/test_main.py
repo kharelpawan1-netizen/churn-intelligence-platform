@@ -4,12 +4,12 @@
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.core.config import settings  # import the actual loaded settings
 
 client = TestClient(app)
 
 
 def test_health_check():
-    """The health endpoint should always return 200 with expected fields."""
     response = client.get("/api/v1/health")
     assert response.status_code == 200
     data = response.json()
@@ -17,9 +17,8 @@ def test_health_check():
 
 
 def test_predict_without_api_key_fails():
-    """Prediction requests without an API key should be rejected."""
     response = client.post("/api/v1/predict", json={})
-    assert response.status_code in (401, 422)  # missing key or missing body fields
+    assert response.status_code in (401, 422)
 
 
 def test_predict_with_valid_data():
@@ -48,7 +47,7 @@ def test_predict_with_valid_data():
     response = client.post(
         "/api/v1/predict",
         json=sample_customer,
-        headers={"x-api-key": "my-secret-dev-key-12345"},
+        headers={"x-api-key": settings.api_key},  # use whatever key is actually loaded
     )
     assert response.status_code == 200
     data = response.json()
