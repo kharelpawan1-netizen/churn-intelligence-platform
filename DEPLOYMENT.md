@@ -1,16 +1,22 @@
 # Deployment
 
 ## Platform
-Deployed on Render (free tier), built directly from the repo's `Dockerfile` via GitHub integration. Automatic redeploy on every push to `main`.
+Deployed on Render, built directly from the repo's `Dockerfile` via GitHub integration. Automatic redeploy on every push to `main`.
 
 ## Live URL
 https://churn-intelligence-platform-kzq0.onrender.com
 
-## Environment variables (set in Render dashboard, not committed to Git)
-`APP_NAME`, `ENVIRONMENT`, `DEBUG`, `API_KEY`
+## Database
+PostgreSQL (Render managed database, free tier), connected via an internal, private network URL — not publicly exposed. Locally, the same codebase runs against either PostgreSQL (via Docker) or SQLite, controlled entirely by the `DATABASE_URL` environment variable — no code changes needed to switch between them.
 
-## Known limitation
-Render's free tier uses an ephemeral filesystem — the SQLite database resets on every restart/redeploy. Acceptable for a demo/portfolio deployment; a production system would use a managed database (e.g., Render PostgreSQL) instead.
+**This replaced an earlier SQLite-based setup**, which stored data in the container's local filesystem and lost all prediction history on every restart/redeploy (a known limitation of Render's free-tier ephemeral filesystem). Verified fix: forced a manual redeploy after logging a prediction, and confirmed the prediction count persisted afterward — proving data now survives restarts.
+
+## Environment variables (set in Render dashboard, not committed to Git)
+`APP_NAME`, `ENVIRONMENT`, `DEBUG`, `API_KEY`, `DATABASE_URL`
 
 ## CI/CD
 GitHub Actions (`.github/workflows/ci.yml`) runs the full pytest suite on every push to `main`. Render deploys independently of CI status — a future improvement would be gating deployment on CI passing.
+
+## Known limitations
+- Render's free tier spins down after ~15 minutes of inactivity; the first request afterward may take 30-60 seconds while the service restarts.
+- No automated database backups configured (Render's free-tier Postgres has limited retention) — acceptable for a portfolio project, not for real production data.

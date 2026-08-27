@@ -18,7 +18,8 @@ Deployed at **0.2**, not the default 0.5. Selected via cost analysis: assumed $5
 
 ## Known limitations
 - **Multicollinearity:** `MonthlyCharges`, `TotalCharges`, and the engineered `avg_monthly_spend` are correlated. This occasionally produces counter-intuitive behavior — e.g., raising `MonthlyCharges` alone can *lower* predicted churn risk for an otherwise identical, high-risk customer profile. This is a documented model quirk, not a pipeline bug (verified via controlled testing).
-- **Static training data:** the model reflects patterns in one historical snapshot. No drift detection or automatic retraining is implemented; retraining is manual (`python -m pipelines.train_pipeline`).
+- **Static training data:** the model reflects patterns in one historical snapshot. No drift detection or automatic retraining is implemented; retraining is manual (`python -m pipelines.train_pipeline`). 
+- ~~SQLite data loss on redeploy~~ — **Resolved**: migrated to PostgreSQL (see DEPLOYMENT.md) with a verified persistence test across a production restart.
 - **No fairness/bias audit performed** — a real deployment should audit predictions across demographic groups (e.g., `gender`, `SeniorCitizen`) before production use, even though `gender` was found statistically insignificant here.
 
 ## Top predictive features (via SHAP)
