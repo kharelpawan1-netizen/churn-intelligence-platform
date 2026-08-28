@@ -69,7 +69,11 @@ def train_and_save() -> None:
     joblib.dump(model, "models/churn_model.pkl")
     joblib.dump(scaler, "models/scaler.pkl")
     joblib.dump(
-        {"threshold": DECISION_THRESHOLD, "feature_columns": X.columns.tolist()},
+        {
+            "version": version,  # NEW: so the API can log which model version served each prediction
+            "threshold": DECISION_THRESHOLD,
+            "feature_columns": X.columns.tolist(),
+        },
         "models/model_metadata.pkl",
     )
 

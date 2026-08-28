@@ -21,6 +21,10 @@ shap_background = joblib.load("models/shap_background.pkl")
 
 THRESHOLD = metadata["threshold"]
 FEATURE_COLUMNS = metadata["feature_columns"]
+# The production model_metadata.pkl doesn't currently store a "version" key
+# (only the timestamped models/versions/<ts>/model_metadata.pkl does) — fall
+# back to "unknown" rather than crashing if it's missing.
+MODEL_VERSION = metadata.get("version", "unknown")
 
 # Built once at startup, reused for every prediction — this is what makes
 # per-request SHAP explanations fast enough to use in a live API.
@@ -76,6 +80,7 @@ def predict_churn(customer: CustomerData, db: Session) -> PredictionResponse:
         contract_type=customer.Contract,
         tenure=customer.tenure,
         monthly_charges=customer.MonthlyCharges,
+        model_version=MODEL_VERSION,
     )
     db.add(log_entry)
     db.commit()
@@ -113,6 +118,7 @@ def predict_churn_batch(df: pd.DataFrame, db: Session) -> list[BatchPredictionRe
             contract_type=row.get("Contract", "unknown"),
             tenure=int(row.get("tenure", 0)),
             monthly_charges=float(row.get("MonthlyCharges", 0)),
+            model_version=MODEL_VERSION,
         )
         db.add(log_entry)
 

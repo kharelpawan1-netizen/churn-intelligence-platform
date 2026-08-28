@@ -19,3 +19,4 @@ class PredictionLog(Base):
     contract_type = Column(String)
     tenure = Column(Integer)
     monthly_charges = Column(Float)
+    model_version = Column(String, nullable=True)  # which trained model version made this prediction
