@@ -4,7 +4,7 @@ A production-style machine learning system that predicts customer churn risk and
 
 **Live app:** https://churn-intelligence-platform-kzq0.onrender.com/
 **Live API docs:** https://churn-intelligence-platform-kzq0.onrender.com/docs
-
+**Live app:** https://churn-intelligence-platform-kzq0.onrender.com/ (predictor) · https://churn-intelligence-platform-kzq0.onrender.com/dashboard (analytics)
 ## What this does
 
 Predicts the probability that a telecom customer will churn, using a Logistic Regression model trained on the Telco Customer Churn dataset (7,043 customers, 33 engineered features). Goes beyond prediction into **prescriptive analytics** — the deployment threshold (0.2, not the default 0.5) was chosen by modeling the actual dollar cost of missed churners vs. false alarms, minimizing expected business loss rather than optimizing a generic ML metric.
@@ -31,6 +31,7 @@ Python 3.9 · pandas/scikit-learn · FastAPI · SQLAlchemy/PostgreSQL · pytest 
 - `GET /api/v1/monitoring/summary` — aggregate stats on predictions made
 - `GET /api/v1/health` — health check
 - API key authentication, request logging, full test coverage, CI on every push
+- `GET /dashboard` — live analytics dashboard (revenue at risk, retention curve, churn by contract, model drivers)
 
 ## Project structure
 
