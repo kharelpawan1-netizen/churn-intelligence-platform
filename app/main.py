@@ -20,6 +20,7 @@ from app.schemas.customer import (
     BatchPredictionResponse,
 )
 from app.services.prediction_service import predict_churn, predict_churn_batch
+from app.services.analytics_service import get_dashboard_data
 from app.db.database import engine, Base, get_db
 from app.db import models
 from app.db.models import PredictionLog
@@ -42,6 +43,12 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 def serve_frontend():
     """Serve the frontend UI at the root URL."""
     return FileResponse("static/index.html")
+
+
+@app.get("/dashboard")
+def serve_dashboard():
+    """Serve the analytics dashboard UI."""
+    return FileResponse("static/dashboard.html")
 
 
 @app.get("/api/v1/health")
@@ -110,3 +117,14 @@ def monitoring_summary(db: Session = Depends(get_db)) -> dict:
         "average_churn_probability": round(avg_probability, 4),
         "risk_level_breakdown": dict(risk_counts),
     }
+
+
+@app.get("/api/v1/analytics/dashboard")
+def analytics_dashboard(db: Session = Depends(get_db)) -> dict:
+    """Aggregate analytics for the dashboard: revenue at risk, retention curve,
+    churn by contract, and top model drivers."""
+    try:
+        return get_dashboard_data(db)
+    except Exception as e:
+        logger.error(f"Dashboard data failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal error building dashboard data")

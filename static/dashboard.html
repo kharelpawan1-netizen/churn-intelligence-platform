@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Analytics Dashboard — Churn Intelligence Platform</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  body { font-family: -apple-system, Segoe UI, Arial, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; background: #f7f8fa; color: #1a1a2e; }
+  h1 { font-size: 1.6rem; margin-bottom: 4px; }
+  .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 24px; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+  .kpi-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .kpi-label { font-size: 0.8rem; color: #666; text-transform: uppercase; font-weight: 600; }
+  .kpi-value { font-size: 1.8rem; font-weight: 700; margin-top: 6px; color: #4f46e5; }
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .chart-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .chart-card h2 { font-size: 1rem; margin: 0 0 12px 0; }
+  .chart-full { grid-column: 1 / -1; }
+  canvas { max-height: 280px; }
+  .loading { text-align: center; padding: 60px; color: #888; }
+  nav a { color: #4f46e5; text-decoration: none; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+
+<nav><a href="/">&larr; Back to Predictor</a></nav>
+<h1>Analytics Dashboard</h1>
+<p class="subtitle">Live model performance, business impact, and prediction activity</p>
+
+<div id="loading" class="loading">Loading dashboard data...</div>
+
+<div id="content" style="display:none;">
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">Total Predictions</div>
+      <div class="kpi-value" id="kpiTotal">-</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Monthly Revenue at Risk</div>
+      <div class="kpi-value" id="kpiRevenue">-</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">High-Risk Share</div>
+      <div class="kpi-value" id="kpiHighRisk">-</div>
+    </div>
+  </div>
+
+  <div class="chart-grid">
+    <div class="chart-card">
+      <h2>Risk Level Breakdown</h2>
+      <canvas id="riskChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h2>Churn Rate by Contract Type</h2>
+      <canvas id="contractChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h2>Retention Curve (Churn Rate by Tenure)</h2>
+      <canvas id="retentionChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h2>Top Model Drivers (Coefficients)</h2>
+      <canvas id="driversChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+async function loadDashboard() {
+  const res = await fetch("/api/v1/analytics/dashboard");
+  const data = await res.json();
+
+  document.getElementById("loading").style.display = "none";
+  document.getElementById("content").style.display = "block";
+
+  // KPIs
+  document.getElementById("kpiTotal").textContent = data.total_predictions;
+  document.getElementById("kpiRevenue").textContent = "$" + data.revenue_at_risk.total_revenue_at_risk.toLocaleString();
+  const highRiskCount = data.risk_breakdown.high || 0;
+  const highRiskPct = data.total_predictions > 0 ? ((highRiskCount / data.total_predictions) * 100).toFixed(1) : 0;
+  document.getElementById("kpiHighRisk").textContent = highRiskPct + "%";
+
+  // Risk breakdown pie chart
+  new Chart(document.getElementById("riskChart"), {
+    type: "doughnut",
+    data: {
+      labels: Object.keys(data.risk_breakdown),
+      datasets: [{
+        data: Object.values(data.risk_breakdown),
+        backgroundColor: ["#16a34a", "#d97706", "#dc2626"],
+      }],
+    },
+    options: { responsive: true, plugins: { legend: { position: "bottom" } } },
+  });
+
+  // Churn by contract bar chart
+  new Chart(document.getElementById("contractChart"), {
+    type: "bar",
+    data: {
+      labels: data.churn_by_contract.map(d => d.contract),
+      datasets: [{
+        label: "Churn Rate",
+        data: data.churn_by_contract.map(d => (d.churn_rate * 100).toFixed(1)),
+        backgroundColor: "#4f46e5",
+      }],
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { title: { display: true, text: "Churn Rate (%)" } } },
+    },
+  });
+
+  // Retention curve line chart
+  new Chart(document.getElementById("retentionChart"), {
+    type: "line",
+    data: {
+      labels: data.retention_curve.map(d => d.bucket),
+      datasets: [{
+        label: "Churn Rate",
+        data: data.retention_curve.map(d => (d.churn_rate * 100).toFixed(1)),
+        borderColor: "#dc2626",
+        backgroundColor: "rgba(220, 38, 38, 0.1)",
+        fill: true,
+        tension: 0.3,
+      }],
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { title: { display: true, text: "Churn Rate (%)" } } },
+    },
+  });
+
+  // Top model drivers horizontal bar chart
+  const drivers = data.top_model_drivers;
+  new Chart(document.getElementById("driversChart"), {
+    type: "bar",
+    data: {
+      labels: drivers.map(d => d.feature),
+      datasets: [{
+        label: "Coefficient",
+        data: drivers.map(d => d.coefficient),
+        backgroundColor: drivers.map(d => d.coefficient > 0 ? "#dc2626" : "#16a34a"),
+      }],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      plugins: { legend: { display: false } },
+    },
+  });
+}
+
+loadDashboard();
+</script>
+
+</body>
+</html>
