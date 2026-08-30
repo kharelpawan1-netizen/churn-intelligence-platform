@@ -1,0 +1,4 @@
+Gender,tenure,Monthly_Charges,SeniorCitizen,Total_Charges,Contract,InternetService,PaymentMethod
+Female,2,85.5,0,171.0,Month-to-month,Fiber optic,Electronic check
+Male,45,65.0,1,N/A,Two year,DSL,Bank transfer (automatic)
+Female,,20.0,0,160.0,-,No,Mailed check

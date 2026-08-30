@@ -49,7 +49,16 @@ class BatchPredictionResult(BaseModel):
     risk_level: str
 
 
+class CleaningReport(BaseModel):
+    """Describes what the auto-cleaning step did to the uploaded CSV."""
+    matched_columns: list[str]
+    defaulted_columns: list[str]
+    ignored_columns: list[str]
+    rows_with_missing_values_filled: int
+
+
 class BatchPredictionResponse(BaseModel):
     """Response for a batch prediction request."""
     total_processed: int
+    cleaning_report: CleaningReport
     results: list[BatchPredictionResult]

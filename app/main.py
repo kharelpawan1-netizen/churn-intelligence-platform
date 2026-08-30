@@ -76,7 +76,9 @@ def predict(customer: CustomerData, db: Session = Depends(get_db)) -> Prediction
 
 @app.post("/api/v1/predict/batch", response_model=BatchPredictionResponse, dependencies=[Depends(verify_api_key)])
 async def predict_batch(file: UploadFile = File(...), db: Session = Depends(get_db)) -> BatchPredictionResponse:
-    """Predict churn risk for multiple customers from an uploaded CSV."""
+    """Predict churn risk for multiple customers from an uploaded CSV.
+    The CSV is automatically cleaned and normalized — tolerant of missing
+    columns, reordered columns, common naming variants, and messy values."""
     if not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="File must be a CSV")
 
@@ -86,11 +88,22 @@ async def predict_batch(file: UploadFile = File(...), db: Session = Depends(get_
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Could not parse CSV: {e}")
 
+    if df.empty:
+        raise HTTPException(status_code=400, detail="CSV file has no rows")
+
     try:
         logger.info(f"Batch prediction requested for {len(df)} customers")
-        results = predict_churn_batch(df, db)
-        logger.info(f"Batch prediction completed: {len(results)} results")
-        return BatchPredictionResponse(total_processed=len(results), results=results)
+        results, cleaning_report = predict_churn_batch(df, db)
+        logger.info(
+            f"Batch prediction completed: {len(results)} results, "
+            f"matched={len(cleaning_report['matched_columns'])}, "
+            f"defaulted={len(cleaning_report['defaulted_columns'])}"
+        )
+        return BatchPredictionResponse(
+            total_processed=len(results),
+            cleaning_report=cleaning_report,
+            results=results,
+        )
     except Exception as e:
         logger.error(f"Batch prediction failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal error during batch prediction")

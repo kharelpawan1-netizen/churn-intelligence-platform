@@ -12,6 +12,7 @@ from app.schemas.customer import (
     BatchPredictionResult,
     TopFactor,
 )
+from app.services.data_cleaning_service import clean_and_normalize
 from app.db.models import PredictionLog
 
 model = joblib.load("models/churn_model.pkl")
@@ -21,13 +22,8 @@ shap_background = joblib.load("models/shap_background.pkl")
 
 THRESHOLD = metadata["threshold"]
 FEATURE_COLUMNS = metadata["feature_columns"]
-# The production model_metadata.pkl doesn't currently store a "version" key
-# (only the timestamped models/versions/<ts>/model_metadata.pkl does) — fall
-# back to "unknown" rather than crashing if it's missing.
 MODEL_VERSION = metadata.get("version", "unknown")
 
-# Built once at startup, reused for every prediction — this is what makes
-# per-request SHAP explanations fast enough to use in a live API.
 explainer = shap.LinearExplainer(model, shap_background)
 
 
@@ -45,7 +41,7 @@ def _encode_row(row: pd.Series) -> pd.DataFrame:
 def _get_top_factors(scaled_row, top_n: int = 3) -> list[TopFactor]:
     """Compute the top N features driving this specific prediction, by |impact|."""
     shap_values = explainer(scaled_row)
-    impacts = shap_values.values[0]  # one row -> 1D array of per-feature impacts
+    impacts = shap_values.values[0]
 
     factor_pairs = list(zip(FEATURE_COLUMNS, impacts))
     factor_pairs.sort(key=lambda pair: abs(pair[1]), reverse=True)
@@ -93,8 +89,15 @@ def predict_churn(customer: CustomerData, db: Session) -> PredictionResponse:
     )
 
 
-def predict_churn_batch(df: pd.DataFrame, db: Session) -> list[BatchPredictionResult]:
-    """Run predictions for multiple customers at once, from an uploaded CSV."""
+def predict_churn_batch(raw_df: pd.DataFrame, db: Session) -> tuple[list[BatchPredictionResult], dict]:
+    """
+    Run predictions for multiple customers from an uploaded CSV.
+    The CSV is auto-cleaned/normalized first — tolerant of missing columns,
+    reordered columns, common naming variants, and messy missing values.
+    Returns (results, cleaning_report).
+    """
+    df, cleaning_report = clean_and_normalize(raw_df)
+
     results = []
 
     for idx, row in df.iterrows():
@@ -130,4 +133,4 @@ def predict_churn_batch(df: pd.DataFrame, db: Session) -> list[BatchPredictionRe
         ))
 
     db.commit()
-    return results
+    return results, cleaning_report
