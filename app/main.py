@@ -19,8 +19,18 @@ from app.schemas.customer import (
     PredictionResponse,
     BatchPredictionResponse,
 )
+from app.schemas.custom_model import (
+    TrainCustomModelResponse,
+    CustomBatchPredictionResponse,
+    CustomPredictionResult,
+)
 from app.services.prediction_service import predict_churn, predict_churn_batch
 from app.services.analytics_service import get_dashboard_data
+from app.services.custom_training_service import (
+    train_custom_model,
+    predict_with_custom_model,
+    TrainingError,
+)
 from app.db.database import engine, Base, get_db
 from app.db import models
 from app.db.models import PredictionLog
@@ -107,6 +117,76 @@ async def predict_batch(file: UploadFile = File(...), db: Session = Depends(get_
     except Exception as e:
         logger.error(f"Batch prediction failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal error during batch prediction")
+
+
+@app.post("/api/v1/train/custom", response_model=TrainCustomModelResponse, dependencies=[Depends(verify_api_key)])
+async def train_custom(file: UploadFile = File(...)) -> TrainCustomModelResponse:
+    """
+    Train a fresh model on the user's own uploaded dataset. The CSV must
+    include a target/churn column (e.g. 'Churn', 'Cancelled', 'Target').
+    Returns a model_id to use with /predict/custom/{model_id}.
+    """
+    if not file.filename.endswith(".csv"):
+        raise HTTPException(status_code=400, detail="File must be a CSV")
+
+    try:
+        contents = await file.read()
+        df = pd.read_csv(io.BytesIO(contents))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not parse CSV: {e}")
+
+    if df.empty:
+        raise HTTPException(status_code=400, detail="CSV file has no rows")
+
+    try:
+        logger.info(f"Custom model training requested, {len(df)} rows, {len(df.columns)} columns")
+        result = train_custom_model(df)
+        logger.info(
+            f"Custom model trained: id={result['model_id']}, "
+            f"auc={result['roc_auc_mean']}, confidence={result['confidence']}"
+        )
+        return TrainCustomModelResponse(**result)
+    except TrainingError as e:
+        logger.warning(f"Custom training rejected: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Custom training failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal error during custom model training")
+
+
+@app.post(
+    "/api/v1/predict/custom/{model_id}",
+    response_model=CustomBatchPredictionResponse,
+    dependencies=[Depends(verify_api_key)],
+)
+async def predict_custom(model_id: str, file: UploadFile = File(...)) -> CustomBatchPredictionResponse:
+    """Predict using a previously trained custom model, on new uploaded rows."""
+    if not file.filename.endswith(".csv"):
+        raise HTTPException(status_code=400, detail="File must be a CSV")
+
+    try:
+        contents = await file.read()
+        df = pd.read_csv(io.BytesIO(contents))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not parse CSV: {e}")
+
+    if df.empty:
+        raise HTTPException(status_code=400, detail="CSV file has no rows")
+
+    try:
+        logger.info(f"Custom prediction requested for model {model_id}, {len(df)} rows")
+        raw_results = predict_with_custom_model(model_id, df)
+        results = [CustomPredictionResult(**r) for r in raw_results]
+        return CustomBatchPredictionResponse(
+            model_id=model_id,
+            total_processed=len(results),
+            results=results,
+        )
+    except TrainingError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Custom prediction failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal error during custom prediction")
 
 
 @app.get("/api/v1/monitoring/summary")
