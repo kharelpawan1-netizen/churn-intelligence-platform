@@ -7,12 +7,16 @@
   body { font-family: -apple-system, Segoe UI, Arial, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; background: #f7f8fa; color: #1a1a2e; }
   h1 { font-size: 1.5rem; }
   h2 { font-size: 1.1rem; margin-top: 0; }
+  h3.section-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #888; margin: 32px 0 8px 0; }
   .card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 20px; }
   label { display: block; margin-top: 12px; font-size: 0.85rem; font-weight: 600; color: #555; }
   input, select { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
   button { margin-top: 20px; padding: 10px 20px; background: #4f46e5; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
   button:hover { background: #4338ca; }
-  #result, #batchResult { display: none; }
+  button:disabled { background: #c7c7d1; cursor: not-allowed; }
+  button.secondary { background: #6b7280; }
+  button.secondary:hover { background: #52525b; }
+  #result, #batchResult, #trainResult, #customPredictResult { display: none; }
   .risk-low { color: #16a34a; }
   .risk-medium { color: #d97706; }
   .risk-high { color: #dc2626; }
@@ -26,6 +30,9 @@
   .badge-low { background: #dcfce7; color: #16a34a; }
   .badge-medium { background: #fef3c7; color: #d97706; }
   .badge-high { background: #fee2e2; color: #dc2626; }
+  .badge-good { background: #dcfce7; color: #16a34a; }
+  .badge-moderate { background: #fef3c7; color: #d97706; }
+  .badge-low-conf { background: #fee2e2; color: #dc2626; }
   .section-divider { border: none; border-top: 1px solid #eee; margin: 24px 0; }
   .cleaning-report { background: #f5f6fa; border-radius: 8px; padding: 14px 16px; margin-top: 12px; font-size: 0.85rem; }
   .cleaning-report h3 { margin: 0 0 8px 0; font-size: 0.85rem; color: #555; text-transform: uppercase; letter-spacing: 0.02em; }
@@ -34,6 +41,11 @@
   .tag { display: inline-block; background: #e0e7ff; color: #4338ca; border-radius: 4px; padding: 1px 6px; margin: 2px 3px 2px 0; font-size: 0.78rem; }
   .tag-default { background: #fef3c7; color: #92400e; }
   .tag-ignored { background: #f3f4f6; color: #6b7280; }
+  .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 12px; }
+  .metric-box { background: #f5f6fa; border-radius: 8px; padding: 10px; text-align: center; }
+  .metric-box .val { font-size: 1.1rem; font-weight: 700; color: #1a1a2e; }
+  .metric-box .lbl { font-size: 0.7rem; color: #888; text-transform: uppercase; margin-top: 2px; }
+  .model-id-box { background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 8px; padding: 10px 14px; margin-top: 12px; font-family: monospace; font-size: 0.9rem; color: #4338ca; }
 </style>
 </head>
 <body>
@@ -124,6 +136,73 @@
 
 <div class="card" id="batchErrorCard" style="display:none; color:#dc2626;">
   <strong id="batchErrorText"></strong>
+</div>
+
+<!-- Bring Your Own Data -->
+<h3 class="section-label">Bring Your Own Data</h3>
+
+<div class="card">
+  <h2>1. Train a Model on Your Data</h2>
+  <p style="font-size:0.85rem; color:#666;">Works for ANY domain, not just telecom — gym memberships, SaaS subscriptions, insurance policies, anything. Just include a column marking who churned (e.g. "Churn", "Cancelled", "Target"). Needs at least 50 rows, with at least 10 examples of each outcome.</p>
+
+  <label>API Key</label>
+  <input type="text" id="trainApiKey" placeholder="Enter your API key">
+
+  <label>Training CSV (must include a churn/target column)</label>
+  <input type="file" id="trainFile" accept=".csv">
+
+  <button onclick="trainCustomModel()">Train Model</button>
+</div>
+
+<div class="card" id="trainResult">
+  <h2>Model Trained</h2>
+  <div class="model-id-box">model_id: <strong id="trainedModelId"></strong></div>
+
+  <div class="metric-grid">
+    <div class="metric-box"><div class="val" id="metricAuc">-</div><div class="lbl">ROC-AUC</div></div>
+    <div class="metric-box"><div class="val" id="metricPrecision">-</div><div class="lbl">Precision</div></div>
+    <div class="metric-box"><div class="val" id="metricRecall">-</div><div class="lbl">Recall</div></div>
+    <div class="metric-box"><div class="val"><span class="badge" id="confidenceBadge"></span></div><div class="lbl">Confidence</div></div>
+  </div>
+
+  <p style="font-size:0.8rem; color:#888; margin-top:12px;" id="trainDetails"></p>
+
+  <button class="secondary" onclick="copyModelIdToPredictField()">Use This Model Below &darr;</button>
+</div>
+
+<div class="card" id="trainErrorCard" style="display:none; color:#dc2626;">
+  <strong id="trainErrorText"></strong>
+</div>
+
+<div class="card">
+  <h2>2. Predict With Your Trained Model</h2>
+  <p style="font-size:0.85rem; color:#666;">Upload new, unlabeled rows (same columns as your training data, minus the target column) to get predictions from your custom model.</p>
+
+  <label>API Key</label>
+  <input type="text" id="customPredictApiKey" placeholder="Enter your API key">
+
+  <label>Model ID</label>
+  <input type="text" id="customModelId" placeholder="e.g. c9e00ff9">
+
+  <label>New Data CSV (no target column)</label>
+  <input type="file" id="customPredictFile" accept=".csv">
+
+  <button onclick="predictWithCustomModel()">Predict</button>
+</div>
+
+<div class="card" id="customPredictResult">
+  <h2>Predictions</h2>
+  <p id="customPredictSummary" style="color:#555; font-size:0.9rem;"></p>
+  <table>
+    <thead>
+      <tr><th>Row</th><th>Probability</th><th>Will Churn</th></tr>
+    </thead>
+    <tbody id="customPredictTableBody"></tbody>
+  </table>
+</div>
+
+<div class="card" id="customPredictErrorCard" style="display:none; color:#dc2626;">
+  <strong id="customPredictErrorText"></strong>
 </div>
 
 <script>
@@ -237,6 +316,116 @@ async function predictBatch() {
   } catch (e) {
     document.getElementById("batchErrorText").textContent = e.message;
     document.getElementById("batchErrorCard").style.display = "block";
+  }
+}
+
+async function trainCustomModel() {
+  const apiKey = document.getElementById("trainApiKey").value;
+  const fileInput = document.getElementById("trainFile");
+  document.getElementById("trainErrorCard").style.display = "none";
+  document.getElementById("trainResult").style.display = "none";
+
+  if (!fileInput.files.length) {
+    document.getElementById("trainErrorText").textContent = "Please choose a training CSV first.";
+    document.getElementById("trainErrorCard").style.display = "block";
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("file", fileInput.files[0]);
+
+  try {
+    const res = await fetch("/api/v1/train/custom", {
+      method: "POST",
+      headers: { "x-api-key": apiKey },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Training failed");
+    }
+
+    const data = await res.json();
+
+    document.getElementById("trainedModelId").textContent = data.model_id;
+    document.getElementById("metricAuc").textContent = data.roc_auc_mean.toFixed(3);
+    document.getElementById("metricPrecision").textContent = data.precision_mean.toFixed(3);
+    document.getElementById("metricRecall").textContent = data.recall_mean.toFixed(3);
+
+    const confBadge = document.getElementById("confidenceBadge");
+    confBadge.textContent = data.confidence.toUpperCase();
+    confBadge.className = "badge badge-" + (data.confidence === "good" ? "good" : data.confidence === "moderate" ? "moderate" : "low-conf");
+
+    document.getElementById("trainDetails").textContent =
+      `Trained on ${data.rows_used} rows, ${data.features_used} features, ` +
+      `${data.cv_folds_used}-fold cross-validation. Target column detected: "${data.target_column_detected}".` +
+      (data.dropped_id_columns.length ? ` Dropped ID-like column(s): ${data.dropped_id_columns.join(", ")}.` : "");
+
+    document.getElementById("trainResult").style.display = "block";
+  } catch (e) {
+    document.getElementById("trainErrorText").textContent = e.message;
+    document.getElementById("trainErrorCard").style.display = "block";
+  }
+}
+
+function copyModelIdToPredictField() {
+  const modelId = document.getElementById("trainedModelId").textContent;
+  document.getElementById("customModelId").value = modelId;
+  document.getElementById("customModelId").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+async function predictWithCustomModel() {
+  const apiKey = document.getElementById("customPredictApiKey").value;
+  const modelId = document.getElementById("customModelId").value.trim();
+  const fileInput = document.getElementById("customPredictFile");
+  document.getElementById("customPredictErrorCard").style.display = "none";
+  document.getElementById("customPredictResult").style.display = "none";
+
+  if (!modelId) {
+    document.getElementById("customPredictErrorText").textContent = "Please enter a model ID.";
+    document.getElementById("customPredictErrorCard").style.display = "block";
+    return;
+  }
+  if (!fileInput.files.length) {
+    document.getElementById("customPredictErrorText").textContent = "Please choose a CSV file first.";
+    document.getElementById("customPredictErrorCard").style.display = "block";
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("file", fileInput.files[0]);
+
+  try {
+    const res = await fetch(`/api/v1/predict/custom/${encodeURIComponent(modelId)}`, {
+      method: "POST",
+      headers: { "x-api-key": apiKey },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Prediction failed");
+    }
+
+    const data = await res.json();
+    document.getElementById("customPredictSummary").textContent = `Processed ${data.total_processed} row(s) with model ${data.model_id}.`;
+
+    const tbody = document.getElementById("customPredictTableBody");
+    tbody.innerHTML = "";
+    data.results.forEach(r => {
+      const pct = (r.churn_probability * 100).toFixed(1) + "%";
+      tbody.innerHTML += `<tr>
+        <td>${r.row_index}</td>
+        <td>${pct}</td>
+        <td>${r.will_churn ? "Yes" : "No"}</td>
+      </tr>`;
+    });
+
+    document.getElementById("customPredictResult").style.display = "block";
+  } catch (e) {
+    document.getElementById("customPredictErrorText").textContent = e.message;
+    document.getElementById("customPredictErrorCard").style.display = "block";
   }
 }
 </script>
