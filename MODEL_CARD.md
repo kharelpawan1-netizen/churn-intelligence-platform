@@ -35,3 +35,17 @@ Audited selection rate, recall, and false positive rate across `gender` and `Sen
 **SeniorCitizen:** substantial disparity. Senior citizens are flagged as at-risk at nearly 2x the rate of non-seniors (76.1% vs 43.1% selection rate), with a correspondingly higher false positive rate (59.7% vs 31.5%). Likely driven by a genuinely higher underlying churn rate among senior citizens in this dataset, rather than an arbitrary model bias — but the practical effect (senior citizens receiving substantially more "at-risk" classifications and associated retention outreach) is real regardless of cause, and would warrant discussion with the business before production deployment.
 
 Audit script: `pipelines/fairness_audit.py`.
+
+## Bring-your-own-data custom models
+
+Users can train their own model on their own CSV via `POST /api/v1/train/custom` — the target/churn column is auto-detected by name, ID-like and high-cardinality columns are dropped automatically, and performance is reported via 5-fold cross-validation (mean and standard deviation), not a single train/test split.
+
+**Minimums enforced:** at least 50 rows total, and at least 10 examples of each class (churned/not churned) — datasets below this are rejected with a clear error, since smaller samples produce unreliable, misleadingly perfect-looking metrics.
+
+**Confidence flag:** every trained model reports a `confidence` level (`low` / `moderate` / `good`) based on sample size, so users know how much to trust the reported metrics.
+
+**Known limitations (compared to the main production model):**
+- No hyperparameter tuning — plain Logistic Regression only
+- No SHAP explainability
+- No cost-based threshold optimization (default 0.5 threshold used)
+- No fairness audit performed on custom-trained models
