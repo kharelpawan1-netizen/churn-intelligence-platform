@@ -20,3 +20,7 @@ GitHub Actions (`.github/workflows/ci.yml`) runs the full pytest suite on every 
 ## Known limitations
 - Render's free tier spins down after ~15 minutes of inactivity; the first request afterward may take 30-60 seconds while the service restarts.
 - No automated database backups configured (Render's free-tier Postgres has limited retention) — acceptable for a portfolio project, not for real production data.
+
+## Custom model storage (known limitation)
+
+Bring-your-own-data models (`/api/v1/train/custom`) are saved to `models/custom/<id>/` inside the container's filesystem. Like the original SQLite issue this project once had, this storage is **ephemeral on Render's free tier** — custom-trained models will not survive a container restart or redeploy. They work reliably within a single deployment session but should not be relied on long-term. A production fix would store these in an external object store (e.g., S3) rather than local disk, mirroring the PostgreSQL fix applied to the core prediction database.
