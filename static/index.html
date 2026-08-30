@@ -27,6 +27,13 @@
   .badge-medium { background: #fef3c7; color: #d97706; }
   .badge-high { background: #fee2e2; color: #dc2626; }
   .section-divider { border: none; border-top: 1px solid #eee; margin: 24px 0; }
+  .cleaning-report { background: #f5f6fa; border-radius: 8px; padding: 14px 16px; margin-top: 12px; font-size: 0.85rem; }
+  .cleaning-report h3 { margin: 0 0 8px 0; font-size: 0.85rem; color: #555; text-transform: uppercase; letter-spacing: 0.02em; }
+  .cleaning-row { margin: 4px 0; color: #444; }
+  .cleaning-row .tag-list { color: #1a1a2e; font-weight: 500; }
+  .tag { display: inline-block; background: #e0e7ff; color: #4338ca; border-radius: 4px; padding: 1px 6px; margin: 2px 3px 2px 0; font-size: 0.78rem; }
+  .tag-default { background: #fef3c7; color: #92400e; }
+  .tag-ignored { background: #f3f4f6; color: #6b7280; }
 </style>
 </head>
 <body>
@@ -84,7 +91,7 @@
 <!-- Batch prediction -->
 <div class="card">
   <h2>Batch (CSV Upload)</h2>
-  <p style="font-size:0.85rem; color:#666;">Upload a CSV with the same columns as a single customer record (one row per customer).</p>
+  <p style="font-size:0.85rem; color:#666;">Upload any customer CSV — columns can be in any order, use common naming variants, or have some missing values. We'll auto-detect and clean it, and show you exactly what was inferred.</p>
 
   <label>API Key</label>
   <input type="text" id="batchApiKey" placeholder="Enter your API key">
@@ -98,6 +105,15 @@
 <div class="card" id="batchResult">
   <h2>Batch Results</h2>
   <p id="batchSummary" style="color:#555; font-size:0.9rem;"></p>
+
+  <div class="cleaning-report">
+    <h3>How your data was processed</h3>
+    <div class="cleaning-row">Matched columns: <span class="tag-list" id="matchedTags"></span></div>
+    <div class="cleaning-row">Defaulted (not found in your file): <span class="tag-list" id="defaultedTags"></span></div>
+    <div class="cleaning-row">Ignored (not used by the model): <span class="tag-list" id="ignoredTags"></span></div>
+    <div class="cleaning-row" id="missingFilledRow"></div>
+  </div>
+
   <table>
     <thead>
       <tr><th>Row</th><th>Probability</th><th>Will Churn</th><th>Risk</th></tr>
@@ -156,6 +172,15 @@ async function predict() {
   }
 }
 
+function renderTags(elementId, items, tagClass) {
+  const el = document.getElementById(elementId);
+  if (!items || items.length === 0) {
+    el.innerHTML = "<em style='color:#999;'>none</em>";
+    return;
+  }
+  el.innerHTML = items.map(i => `<span class="tag ${tagClass}">${i}</span>`).join("");
+}
+
 async function predictBatch() {
   const apiKey = document.getElementById("batchApiKey").value;
   const fileInput = document.getElementById("csvFile");
@@ -185,6 +210,15 @@ async function predictBatch() {
 
     const data = await res.json();
     document.getElementById("batchSummary").textContent = `Processed ${data.total_processed} customer(s).`;
+
+    const report = data.cleaning_report;
+    renderTags("matchedTags", report.matched_columns, "");
+    renderTags("defaultedTags", report.defaulted_columns, "tag-default");
+    renderTags("ignoredTags", report.ignored_columns, "tag-ignored");
+    document.getElementById("missingFilledRow").textContent =
+      report.rows_with_missing_values_filled > 0
+        ? `Rows with missing values auto-filled: ${report.rows_with_missing_values_filled}`
+        : "No missing values found in matched columns.";
 
     const tbody = document.getElementById("batchTableBody");
     tbody.innerHTML = "";
