@@ -5,29 +5,73 @@
 <title>Analytics Dashboard — Churn Intelligence Platform</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
-  body { font-family: -apple-system, Segoe UI, Arial, sans-serif; max-width: 1100px; margin: 40px auto; padding: 0 20px; background: #f7f8fa; color: #1a1a2e; }
-  h1 { font-size: 1.6rem; margin-bottom: 4px; }
-  .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 24px; }
-  .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
-  .kpi-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-  .kpi-label { font-size: 0.8rem; color: #666; text-transform: uppercase; font-weight: 600; }
-  .kpi-value { font-size: 1.8rem; font-weight: 700; margin-top: 6px; color: #4f46e5; }
-  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .chart-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-  .chart-card h2 { font-size: 1rem; margin: 0 0 12px 0; }
-  .chart-full { grid-column: 1 / -1; }
+  :root {
+    --primary: #4f46e5; --primary-dark: #3730a3; --primary-light: #eef2ff;
+    --bg: #f6f7fb; --surface: #ffffff; --border: #e5e7eb;
+    --text: #14142b; --text-muted: #6b7280;
+    --success: #16a34a; --warning: #d97706; --danger: #dc2626;
+    --radius: 14px; --shadow: 0 1px 3px rgba(20,20,43,0.06), 0 1px 2px rgba(20,20,43,0.04);
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
+    max-width: 1140px; margin: 0 auto; padding: 0 20px 60px;
+    background: var(--bg); color: var(--text); line-height: 1.5;
+  }
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 0; position: sticky; top: 0; background: var(--bg);
+    z-index: 10; border-bottom: 1px solid var(--border); margin-bottom: 28px;
+  }
+  .brand { font-weight: 700; font-size: 1.05rem; display: flex; align-items: center; gap: 8px; }
+  .brand-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 4px var(--primary-light); }
+  .topbar nav a {
+    color: var(--text); text-decoration: none; font-size: 0.88rem; font-weight: 600;
+    padding: 8px 16px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border);
+    transition: all 0.15s;
+  }
+  .topbar nav a:hover { background: var(--primary); color: white; border-color: var(--primary); }
+
+  .hero { margin-bottom: 28px; }
+  .hero h1 { font-size: 1.7rem; margin: 0 0 6px 0; letter-spacing: -0.02em; }
+  .hero p { color: var(--text-muted); margin: 0; font-size: 0.95rem; }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-bottom: 24px; }
+  .kpi-card {
+    background: var(--surface); border-radius: var(--radius); padding: 22px;
+    box-shadow: var(--shadow); border: 1px solid var(--border);
+    position: relative; overflow: hidden;
+  }
+  .kpi-card::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--primary);
+  }
+  .kpi-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.04em; }
+  .kpi-value { font-size: 2rem; font-weight: 800; margin-top: 8px; color: var(--text); letter-spacing: -0.02em; }
+
+  .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .chart-card {
+    background: var(--surface); border-radius: var(--radius); padding: 22px;
+    box-shadow: var(--shadow); border: 1px solid var(--border);
+  }
+  .chart-card h2 { font-size: 1rem; margin: 0 0 4px 0; }
+  .chart-card .chart-desc { font-size: 0.8rem; color: var(--text-muted); margin: 0 0 14px 0; }
   canvas { max-height: 280px; }
-  .loading { text-align: center; padding: 60px; color: #888; }
-  nav a { color: #4f46e5; text-decoration: none; font-size: 0.9rem; }
+  .loading { text-align: center; padding: 80px 0; color: var(--text-muted); font-size: 0.95rem; }
 </style>
 </head>
 <body>
 
-<nav><a href="/">&larr; Back to Predictor</a></nav>
-<h1>Analytics Dashboard</h1>
-<p class="subtitle">Live model performance, business impact, and prediction activity</p>
+<div class="topbar">
+  <div class="brand"><span class="brand-dot"></span> Churn Intelligence</div>
+  <nav><a href="/">&larr; Predict &amp; Train</a></nav>
+</div>
 
-<div id="loading" class="loading">Loading dashboard data...</div>
+<div class="hero">
+  <h1>Analytics Dashboard</h1>
+  <p>Live model performance, business impact, and prediction activity across everything predicted so far.</p>
+</div>
+
+<div id="loading" class="loading">Loading dashboard data…</div>
 
 <div id="content" style="display:none;">
   <div class="kpi-grid">
@@ -48,18 +92,22 @@
   <div class="chart-grid">
     <div class="chart-card">
       <h2>Risk Level Breakdown</h2>
+      <p class="chart-desc">All predictions logged, grouped by risk level.</p>
       <canvas id="riskChart"></canvas>
     </div>
     <div class="chart-card">
       <h2>Churn Rate by Contract Type</h2>
+      <p class="chart-desc">Historical training data — month-to-month vs. annual contracts.</p>
       <canvas id="contractChart"></canvas>
     </div>
     <div class="chart-card">
-      <h2>Retention Curve (Churn Rate by Tenure)</h2>
+      <h2>Retention Curve</h2>
+      <p class="chart-desc">Churn rate by customer tenure — the "new customer risk window."</p>
       <canvas id="retentionChart"></canvas>
     </div>
     <div class="chart-card">
-      <h2>Top Model Drivers (Coefficients)</h2>
+      <h2>Top Model Drivers</h2>
+      <p class="chart-desc">Logistic regression coefficients — red pushes toward churn, green away.</p>
       <canvas id="driversChart"></canvas>
     </div>
   </div>
@@ -73,14 +121,12 @@ async function loadDashboard() {
   document.getElementById("loading").style.display = "none";
   document.getElementById("content").style.display = "block";
 
-  // KPIs
   document.getElementById("kpiTotal").textContent = data.total_predictions;
   document.getElementById("kpiRevenue").textContent = "$" + data.revenue_at_risk.total_revenue_at_risk.toLocaleString();
   const highRiskCount = data.risk_breakdown.high || 0;
   const highRiskPct = data.total_predictions > 0 ? ((highRiskCount / data.total_predictions) * 100).toFixed(1) : 0;
   document.getElementById("kpiHighRisk").textContent = highRiskPct + "%";
 
-  // Risk breakdown pie chart
   new Chart(document.getElementById("riskChart"), {
     type: "doughnut",
     data: {
@@ -88,12 +134,12 @@ async function loadDashboard() {
       datasets: [{
         data: Object.values(data.risk_breakdown),
         backgroundColor: ["#16a34a", "#d97706", "#dc2626"],
+        borderWidth: 0,
       }],
     },
     options: { responsive: true, plugins: { legend: { position: "bottom" } } },
   });
 
-  // Churn by contract bar chart
   new Chart(document.getElementById("contractChart"), {
     type: "bar",
     data: {
@@ -102,16 +148,16 @@ async function loadDashboard() {
         label: "Churn Rate",
         data: data.churn_by_contract.map(d => (d.churn_rate * 100).toFixed(1)),
         backgroundColor: "#4f46e5",
+        borderRadius: 6,
       }],
     },
     options: {
       responsive: true,
       plugins: { legend: { display: false } },
-      scales: { y: { title: { display: true, text: "Churn Rate (%)" } } },
+      scales: { y: { title: { display: true, text: "Churn Rate (%)" }, grid: { color: "#f0f0f5" } }, x: { grid: { display: false } } },
     },
   });
 
-  // Retention curve line chart
   new Chart(document.getElementById("retentionChart"), {
     type: "line",
     data: {
@@ -120,19 +166,19 @@ async function loadDashboard() {
         label: "Churn Rate",
         data: data.retention_curve.map(d => (d.churn_rate * 100).toFixed(1)),
         borderColor: "#dc2626",
-        backgroundColor: "rgba(220, 38, 38, 0.1)",
+        backgroundColor: "rgba(220, 38, 38, 0.08)",
         fill: true,
-        tension: 0.3,
+        tension: 0.35,
+        pointBackgroundColor: "#dc2626",
       }],
     },
     options: {
       responsive: true,
       plugins: { legend: { display: false } },
-      scales: { y: { title: { display: true, text: "Churn Rate (%)" } } },
+      scales: { y: { title: { display: true, text: "Churn Rate (%)" }, grid: { color: "#f0f0f5" } }, x: { grid: { display: false } } },
     },
   });
 
-  // Top model drivers horizontal bar chart
   const drivers = data.top_model_drivers;
   new Chart(document.getElementById("driversChart"), {
     type: "bar",
@@ -142,12 +188,14 @@ async function loadDashboard() {
         label: "Coefficient",
         data: drivers.map(d => d.coefficient),
         backgroundColor: drivers.map(d => d.coefficient > 0 ? "#dc2626" : "#16a34a"),
+        borderRadius: 4,
       }],
     },
     options: {
       indexAxis: "y",
       responsive: true,
       plugins: { legend: { display: false } },
+      scales: { x: { grid: { color: "#f0f0f5" } }, y: { grid: { display: false } } },
     },
   });
 }

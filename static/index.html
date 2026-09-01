@@ -3,58 +3,145 @@
 <head>
 <meta charset="UTF-8">
 <title>Churn Intelligence Platform</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
-  body { font-family: -apple-system, Segoe UI, Arial, sans-serif; max-width: 700px; margin: 40px auto; padding: 0 20px; background: #f7f8fa; color: #1a1a2e; }
-  h1 { font-size: 1.5rem; }
-  h2 { font-size: 1.1rem; margin-top: 0; }
-  h3.section-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #888; margin: 32px 0 8px 0; }
-  .card { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); margin-bottom: 20px; }
-  label { display: block; margin-top: 12px; font-size: 0.85rem; font-weight: 600; color: #555; }
-  input, select { width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
-  button { margin-top: 20px; padding: 10px 20px; background: #4f46e5; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
-  button:hover { background: #4338ca; }
-  button:disabled { background: #c7c7d1; cursor: not-allowed; }
-  button.secondary { background: #6b7280; }
-  button.secondary:hover { background: #52525b; }
+  :root {
+    --primary: #4f46e5;
+    --primary-dark: #3730a3;
+    --primary-light: #eef2ff;
+    --bg: #f6f7fb;
+    --surface: #ffffff;
+    --border: #e5e7eb;
+    --text: #14142b;
+    --text-muted: #6b7280;
+    --success: #16a34a;
+    --success-bg: #dcfce7;
+    --warning: #d97706;
+    --warning-bg: #fef3c7;
+    --danger: #dc2626;
+    --danger-bg: #fee2e2;
+    --radius: 14px;
+    --shadow: 0 1px 3px rgba(20,20,43,0.06), 0 1px 2px rgba(20,20,43,0.04);
+    --shadow-lg: 0 10px 25px rgba(20,20,43,0.08);
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;
+    max-width: 760px; margin: 0 auto; padding: 0 20px 60px;
+    background: var(--bg); color: var(--text); line-height: 1.5;
+  }
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 20px 0; position: sticky; top: 0; background: var(--bg);
+    z-index: 10; border-bottom: 1px solid var(--border); margin-bottom: 28px;
+  }
+  .brand { font-weight: 700; font-size: 1.05rem; display: flex; align-items: center; gap: 8px; }
+  .brand-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 4px var(--primary-light); }
+  .topbar nav a {
+    color: var(--text); text-decoration: none; font-size: 0.88rem; font-weight: 600;
+    padding: 8px 16px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border);
+    transition: all 0.15s;
+  }
+  .topbar nav a:hover { background: var(--primary); color: white; border-color: var(--primary); }
+
+  .hero { margin-bottom: 28px; }
+  .hero h1 { font-size: 1.7rem; margin: 0 0 6px 0; letter-spacing: -0.02em; }
+  .hero p { color: var(--text-muted); margin: 0; font-size: 0.95rem; }
+
+  .card {
+    background: var(--surface); border-radius: var(--radius); padding: 26px;
+    box-shadow: var(--shadow); margin-bottom: 22px; border: 1px solid var(--border);
+  }
+  .card h2 { font-size: 1.05rem; margin: 0 0 4px 0; display: flex; align-items: center; gap: 8px; }
+  .card .card-desc { font-size: 0.85rem; color: var(--text-muted); margin: 0 0 16px 0; }
+
+  h3.section-label {
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--text-muted); margin: 36px 4px 12px 4px; font-weight: 700;
+  }
+
+  label { display: block; margin-top: 14px; font-size: 0.82rem; font-weight: 600; color: #444; }
+  input, select {
+    width: 100%; padding: 10px 12px; margin-top: 5px; border: 1.5px solid var(--border);
+    border-radius: 9px; box-sizing: border-box; font-size: 0.9rem; transition: border-color 0.15s;
+    background: #fbfbfd;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--primary); background: white; }
+
+  button {
+    margin-top: 20px; padding: 11px 22px; background: var(--primary); color: white;
+    border: none; border-radius: 9px; cursor: pointer; font-weight: 600; font-size: 0.9rem;
+    transition: transform 0.1s, background 0.15s; box-shadow: 0 2px 8px rgba(79,70,229,0.25);
+  }
+  button:hover { background: var(--primary-dark); transform: translateY(-1px); }
+  button:active { transform: translateY(0); }
+  button:disabled { background: #c7c7d1; cursor: not-allowed; box-shadow: none; }
+  button.secondary { background: #52525b; box-shadow: none; }
+  button.secondary:hover { background: #3f3f46; }
+
   #result, #batchResult, #trainResult, #customPredictResult { display: none; }
-  .risk-low { color: #16a34a; }
-  .risk-medium { color: #d97706; }
-  .risk-high { color: #dc2626; }
-  .prob-bar { height: 10px; background: #eee; border-radius: 5px; overflow: hidden; margin-top: 8px; }
-  .prob-fill { height: 100%; background: currentColor; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.9rem; }
-  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #eee; }
-  th { color: #555; font-size: 0.8rem; text-transform: uppercase; }
-  .badge { padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.8rem; }
-  .badge-low { background: #dcfce7; color: #16a34a; }
-  .badge-medium { background: #fef3c7; color: #d97706; }
-  .badge-high { background: #fee2e2; color: #dc2626; }
-  .badge-good { background: #dcfce7; color: #16a34a; }
-  .badge-moderate { background: #fef3c7; color: #d97706; }
-  .badge-low-conf { background: #fee2e2; color: #dc2626; }
-  .section-divider { border: none; border-top: 1px solid #eee; margin: 24px 0; }
-  .cleaning-report { background: #f5f6fa; border-radius: 8px; padding: 14px 16px; margin-top: 12px; font-size: 0.85rem; }
-  .cleaning-report h3 { margin: 0 0 8px 0; font-size: 0.85rem; color: #555; text-transform: uppercase; letter-spacing: 0.02em; }
-  .cleaning-row { margin: 4px 0; color: #444; }
-  .cleaning-row .tag-list { color: #1a1a2e; font-weight: 500; }
-  .tag { display: inline-block; background: #e0e7ff; color: #4338ca; border-radius: 4px; padding: 1px 6px; margin: 2px 3px 2px 0; font-size: 0.78rem; }
-  .tag-default { background: #fef3c7; color: #92400e; }
+
+  .risk-low { color: var(--success); }
+  .risk-medium { color: var(--warning); }
+  .risk-high { color: var(--danger); }
+
+  .prob-bar { height: 10px; background: #eee; border-radius: 5px; overflow: hidden; margin-top: 10px; }
+  .prob-fill { height: 100%; background: currentColor; border-radius: 5px; transition: width 0.4s ease; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 0.88rem; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); }
+  th { color: var(--text-muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.03em; }
+
+  .badge { padding: 3px 10px; border-radius: 20px; font-weight: 700; font-size: 0.72rem; letter-spacing: 0.02em; }
+  .badge-low { background: var(--success-bg); color: var(--success); }
+  .badge-medium { background: var(--warning-bg); color: var(--warning); }
+  .badge-high { background: var(--danger-bg); color: var(--danger); }
+  .badge-good { background: var(--success-bg); color: var(--success); }
+  .badge-moderate { background: var(--warning-bg); color: var(--warning); }
+  .badge-low-conf { background: var(--danger-bg); color: var(--danger); }
+
+  .cleaning-report { background: var(--bg); border-radius: 10px; padding: 16px 18px; margin-top: 14px; font-size: 0.85rem; border: 1px solid var(--border); }
+  .cleaning-report h3 { margin: 0 0 10px 0; font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .cleaning-row { margin: 6px 0; color: #444; }
+  .tag { display: inline-block; background: var(--primary-light); color: var(--primary-dark); border-radius: 6px; padding: 2px 8px; margin: 2px 3px 2px 0; font-size: 0.76rem; font-weight: 500; }
+  .tag-default { background: var(--warning-bg); color: #92400e; }
   .tag-ignored { background: #f3f4f6; color: #6b7280; }
-  .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 12px; }
-  .metric-box { background: #f5f6fa; border-radius: 8px; padding: 10px; text-align: center; }
-  .metric-box .val { font-size: 1.1rem; font-weight: 700; color: #1a1a2e; }
-  .metric-box .lbl { font-size: 0.7rem; color: #888; text-transform: uppercase; margin-top: 2px; }
-  .model-id-box { background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 8px; padding: 10px 14px; margin-top: 12px; font-family: monospace; font-size: 0.9rem; color: #4338ca; }
+
+  .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 14px; }
+  .metric-box { background: var(--bg); border-radius: 10px; padding: 14px 10px; text-align: center; border: 1px solid var(--border); }
+  .metric-box .val { font-size: 1.2rem; font-weight: 800; color: var(--text); }
+  .metric-box .lbl { font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; margin-top: 4px; letter-spacing: 0.03em; }
+
+  .model-id-box {
+    background: var(--primary-light); border: 1px solid #c7d2fe; border-radius: 10px;
+    padding: 12px 16px; margin-top: 14px; font-family: 'Courier New', monospace;
+    font-size: 0.9rem; color: var(--primary-dark);
+  }
+
+  .error-card { background: var(--danger-bg); border: 1px solid #fecaca; color: #991b1b !important; }
+  .error-card strong { color: #991b1b; }
+
+  .mini-chart-wrap { max-width: 260px; margin: 16px auto 0; }
 </style>
 </head>
 <body>
 
-<h1>Churn Risk Predictor</h1>
+<div class="topbar">
+  <div class="brand"><span class="brand-dot"></span> Churn Intelligence</div>
+  <nav><a href="/dashboard">View Analytics Dashboard &rarr;</a></nav>
+</div>
+
+<div class="hero">
+  <h1>Predict &amp; Train</h1>
+  <p>Score a single customer, batch-process a CSV, or train a model on your own dataset.</p>
+</div>
 
 <!-- Single prediction -->
 <div class="card">
-  <h2>Single Customer</h2>
+  <h2>🎯 Single Customer</h2>
+  <p class="card-desc">Score one customer instantly using the core Telco churn model.</p>
   <div class="grid">
     <div>
       <label>Contract</label>
@@ -96,14 +183,14 @@
   <p style="margin-top:16px;">Risk level: <strong id="riskText"></strong></p>
 </div>
 
-<div class="card" id="errorCard" style="display:none; color:#dc2626;">
+<div class="card error-card" id="errorCard" style="display:none;">
   <strong id="errorText"></strong>
 </div>
 
 <!-- Batch prediction -->
 <div class="card">
-  <h2>Batch (CSV Upload)</h2>
-  <p style="font-size:0.85rem; color:#666;">Upload any customer CSV — columns can be in any order, use common naming variants, or have some missing values. We'll auto-detect and clean it, and show you exactly what was inferred.</p>
+  <h2>📄 Batch (CSV Upload)</h2>
+  <p class="card-desc">Upload any customer CSV — columns can be in any order, use common naming variants, or have missing values. We'll auto-clean it and show exactly what was inferred.</p>
 
   <label>API Key</label>
   <input type="text" id="batchApiKey" placeholder="Enter your API key">
@@ -116,13 +203,15 @@
 
 <div class="card" id="batchResult">
   <h2>Batch Results</h2>
-  <p id="batchSummary" style="color:#555; font-size:0.9rem;"></p>
+  <p id="batchSummary" style="color:var(--text-muted); font-size:0.9rem;"></p>
+
+  <div class="mini-chart-wrap"><canvas id="batchRiskChart"></canvas></div>
 
   <div class="cleaning-report">
     <h3>How your data was processed</h3>
-    <div class="cleaning-row">Matched columns: <span class="tag-list" id="matchedTags"></span></div>
-    <div class="cleaning-row">Defaulted (not found in your file): <span class="tag-list" id="defaultedTags"></span></div>
-    <div class="cleaning-row">Ignored (not used by the model): <span class="tag-list" id="ignoredTags"></span></div>
+    <div class="cleaning-row">Matched columns: <span id="matchedTags"></span></div>
+    <div class="cleaning-row">Defaulted (not found in your file): <span id="defaultedTags"></span></div>
+    <div class="cleaning-row">Ignored (not used by the model): <span id="ignoredTags"></span></div>
     <div class="cleaning-row" id="missingFilledRow"></div>
   </div>
 
@@ -134,7 +223,7 @@
   </table>
 </div>
 
-<div class="card" id="batchErrorCard" style="display:none; color:#dc2626;">
+<div class="card error-card" id="batchErrorCard" style="display:none;">
   <strong id="batchErrorText"></strong>
 </div>
 
@@ -142,8 +231,8 @@
 <h3 class="section-label">Bring Your Own Data</h3>
 
 <div class="card">
-  <h2>1. Train a Model on Your Data</h2>
-  <p style="font-size:0.85rem; color:#666;">Works for ANY domain, not just telecom — gym memberships, SaaS subscriptions, insurance policies, anything. Just include a column marking who churned (e.g. "Churn", "Cancelled", "Target"). Needs at least 50 rows, with at least 10 examples of each outcome.</p>
+  <h2>🧠 1. Train a Model on Your Data</h2>
+  <p class="card-desc">Works for ANY domain — gym memberships, SaaS, insurance, anything. Include a column marking who churned (e.g. "Churn", "Cancelled", "Target"). Needs 50+ rows, 10+ examples of each outcome.</p>
 
   <label>API Key</label>
   <input type="text" id="trainApiKey" placeholder="Enter your API key">
@@ -165,18 +254,18 @@
     <div class="metric-box"><div class="val"><span class="badge" id="confidenceBadge"></span></div><div class="lbl">Confidence</div></div>
   </div>
 
-  <p style="font-size:0.8rem; color:#888; margin-top:12px;" id="trainDetails"></p>
+  <p style="font-size:0.8rem; color:var(--text-muted); margin-top:14px;" id="trainDetails"></p>
 
   <button class="secondary" onclick="copyModelIdToPredictField()">Use This Model Below &darr;</button>
 </div>
 
-<div class="card" id="trainErrorCard" style="display:none; color:#dc2626;">
+<div class="card error-card" id="trainErrorCard" style="display:none;">
   <strong id="trainErrorText"></strong>
 </div>
 
 <div class="card">
-  <h2>2. Predict With Your Trained Model</h2>
-  <p style="font-size:0.85rem; color:#666;">Upload new, unlabeled rows (same columns as your training data, minus the target column) to get predictions from your custom model.</p>
+  <h2>🔮 2. Predict With Your Trained Model</h2>
+  <p class="card-desc">Upload new, unlabeled rows (same columns as training, minus the target) to get predictions from your custom model.</p>
 
   <label>API Key</label>
   <input type="text" id="customPredictApiKey" placeholder="Enter your API key">
@@ -192,7 +281,7 @@
 
 <div class="card" id="customPredictResult">
   <h2>Predictions</h2>
-  <p id="customPredictSummary" style="color:#555; font-size:0.9rem;"></p>
+  <p id="customPredictSummary" style="color:var(--text-muted); font-size:0.9rem;"></p>
   <table>
     <thead>
       <tr><th>Row</th><th>Probability</th><th>Will Churn</th></tr>
@@ -201,7 +290,7 @@
   </table>
 </div>
 
-<div class="card" id="customPredictErrorCard" style="display:none; color:#dc2626;">
+<div class="card error-card" id="customPredictErrorCard" style="display:none;">
   <strong id="customPredictErrorText"></strong>
 </div>
 
@@ -260,6 +349,8 @@ function renderTags(elementId, items, tagClass) {
   el.innerHTML = items.map(i => `<span class="tag ${tagClass}">${i}</span>`).join("");
 }
 
+let batchChartInstance = null;
+
 async function predictBatch() {
   const apiKey = document.getElementById("batchApiKey").value;
   const fileInput = document.getElementById("csvFile");
@@ -289,6 +380,20 @@ async function predictBatch() {
 
     const data = await res.json();
     document.getElementById("batchSummary").textContent = `Processed ${data.total_processed} customer(s).`;
+
+    // Mini risk-breakdown chart for THIS upload specifically
+    const counts = { low: 0, medium: 0, high: 0 };
+    data.results.forEach(r => { counts[r.risk_level] = (counts[r.risk_level] || 0) + 1; });
+
+    if (batchChartInstance) batchChartInstance.destroy();
+    batchChartInstance = new Chart(document.getElementById("batchRiskChart"), {
+      type: "doughnut",
+      data: {
+        labels: ["Low", "Medium", "High"],
+        datasets: [{ data: [counts.low, counts.medium, counts.high], backgroundColor: ["#16a34a", "#d97706", "#dc2626"] }],
+      },
+      options: { responsive: true, plugins: { legend: { position: "bottom", labels: { boxWidth: 12, font: { size: 11 } } } } },
+    });
 
     const report = data.cleaning_report;
     renderTags("matchedTags", report.matched_columns, "");

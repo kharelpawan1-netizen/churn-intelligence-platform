@@ -51,13 +51,13 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.get("/")
 def serve_frontend():
-    """Serve the frontend UI at the root URL."""
+    """Serve the prediction UI at the homepage."""
     return FileResponse("static/index.html")
 
 
 @app.get("/dashboard")
 def serve_dashboard():
-    """Serve the analytics dashboard UI."""
+    """Serve the analytics dashboard."""
     return FileResponse("static/dashboard.html")
 
 
